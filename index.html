@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulta de pagos de servidores</title>
+<style>
+  :root{
+    --vino:#6b1530;
+    --vino-oscuro:#4a0f21;
+    --vino-suave:#f4e4e9;
+    --paper:#faf7f5;
+    --ink:#241417;
+    --line:#e3d3d8;
+    --muted:#8a747a;
+    --ok:#2f6b45;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    padding:0 0 4rem;
+  }
+  header{
+    background:linear-gradient(135deg,var(--vino),var(--vino-oscuro));
+    color:#fff;
+    padding:2.2rem 1.25rem 2.6rem;
+    text-align:center;
+  }
+  header h1{
+    margin:0 0 .3rem;
+    font-size:1.55rem;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    margin:0;
+    font-size:.9rem;
+    opacity:.85;
+  }
+  .wrap{
+    max-width:760px;
+    margin:-1.6rem auto 0;
+    padding:0 1.25rem;
+  }
+  .searchcard{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:1.1rem;
+    box-shadow:0 8px 24px rgba(107,21,48,0.1);
+  }
+  .searchbar{
+    display:flex;
+    gap:.5rem;
+  }
+  input[type="text"]{
+    flex:1;
+    padding:.75rem .95rem;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:1rem;
+    background:#fff;
+    color:var(--ink);
+  }
+  input[type="text"]:focus, select:focus{
+    outline:2px solid var(--vino);
+    outline-offset:1px;
+  }
+  select{
+    padding:.75rem .8rem;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:.92rem;
+    background:#fff;
+    color:var(--ink);
+  }
+  .hint{
+    font-size:.78rem;
+    color:var(--muted);
+    margin:.55rem .1rem 0;
+  }
+  .count{
+    font-size:.82rem;
+    color:var(--muted);
+    margin:1.1rem .1rem .6rem;
+  }
+  .card{
+    border:1px solid var(--line);
+    border-left:4px solid var(--vino);
+    background:#fff;
+    border-radius:8px;
+    padding:1rem 1.15rem;
+    margin-bottom:.7rem;
+  }
+  .card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:.5rem;
+    flex-wrap:wrap;
+    margin-bottom:.6rem;
+  }
+  .card h2{
+    font-size:1.05rem;
+    margin:0;
+    color:var(--vino-oscuro);
+  }
+  .monto{
+    font-size:1.05rem;
+    font-weight:600;
+    color:var(--ok);
+    white-space:nowrap;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:.4rem .9rem;
+    font-size:.86rem;
+  }
+  .grid .label{
+    color:var(--muted);
+    font-size:.72rem;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+  }
+  .grid .val{
+    color:var(--ink);
+  }
+  .obs{
+    margin-top:.55rem;
+    padding-top:.55rem;
+    border-top:1px dashed var(--line);
+    font-size:.82rem;
+    color:var(--muted);
+  }
+  .empty, .initial{
+    text-align:center;
+    color:var(--muted);
+    padding:2.5rem 1rem;
+    border:1px dashed var(--line);
+    border-radius:8px;
+    font-size:.92rem;
+    margin-top:1rem;
+    background:#fff;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Consulta de pagos de servidores</h1>
+    <p>Busca por folio de empleado o nombre para ver el historial de pagos</p>
+  </header>
+
+  <div class="wrap">
+    <div class="searchcard">
+      <div class="searchbar">
+        <input type="text" id="buscador" placeholder="Folio de empleado o nombre…" autofocus>
+        <select id="filtroAnio">
+          <option value="">Todos los años</option>
+        </select>
+      </div>
+      <p class="hint">Escribe al menos 3 caracteres. Puedes además acotar por año.</p>
+    </div>
+
+    <p class="count" id="contador"></p>
+    <div id="resultados"></div>
+  </div>
+
+<script>
+  let datos = [];
+
+  async function cargarDatos() {
+    try {
+      const res = await fetch('datos.json');
+      datos = await res.json();
+      poblarAnios();
+      mostrarInicial();
+    } catch (err) {
+      document.getElementById('resultados').innerHTML =
+        '<div class="empty">No se pudo cargar datos.json</div>';
+    }
+  }
+
+  function poblarAnios() {
+    const anios = [...new Set(datos.map(item => String(item.anio || '')).filter(Boolean))];
+    anios.sort((a, b) => b.localeCompare(a));
+    const select = document.getElementById('filtroAnio');
+    anios.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a;
+      opt.textContent = a;
+      select.appendChild(opt);
+    });
+  }
+
+  function mostrarInicial() {
+    document.getElementById('contador').textContent = datos.length.toLocaleString('es-MX') + ' registros disponibles';
+    document.getElementById('resultados').innerHTML =
+      '<div class="initial">Escribe un folio de empleado o un nombre para comenzar a buscar.</div>';
+  }
+
+  function formatMonto(m) {
+    const n = Number(m);
+    if (isNaN(n)) return m;
+    return '$' + n.toLocaleString('es-MX', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  function render(lista) {
+    const cont = document.getElementById('resultados');
+    const contador = document.getElementById('contador');
+    contador.textContent = lista.length.toLocaleString('es-MX') + (lista.length === 1 ? ' resultado' : ' resultados');
+
+    if (lista.length === 0) {
+      cont.innerHTML = '<div class="empty">Sin resultados para esa búsqueda.</div>';
+      return;
+    }
+
+    const maxMostrar = 300;
+    const mostrar = lista.slice(0, maxMostrar);
+
+    cont.innerHTML = mostrar.map(item => `
+      <div class="card">
+        <div class="card-top">
+          <h2>${escapeHtml(item.nombre || '')}</h2>
+          <span class="monto">${formatMonto(item.monto)}</span>
+        </div>
+        <div class="grid">
+          <div><span class="label">Folio de empleado</span><br><span class="val">${escapeHtml(item.folio_empleado || '')}</span></div>
+          <div><span class="label">Folio de operación</span><br><span class="val">${escapeHtml(item.folio_operacion || '')}</span></div>
+          <div><span class="label">Fecha de transacción</span><br><span class="val">${escapeHtml(item.fecha_transaccion || '')}</span></div>
+          <div><span class="label">Mes que corresponde</span><br><span class="val">${escapeHtml(item.mes_pago || '')} ${escapeHtml(item.anio || '')}</span></div>
+          <div><span class="label">Tarjeta</span><br><span class="val">${escapeHtml(item.tarjeta || '')}</span></div>
+          <div><span class="label">Medio de pago</span><br><span class="val">${escapeHtml(item.medio_pago || '')}</span></div>
+        </div>
+        ${item.observaciones ? `<div class="obs">Obs: ${escapeHtml(item.observaciones)}</div>` : ''}
+      </div>
+    `).join('') + (lista.length > maxMostrar ? `<div class="hint" style="text-align:center;margin-top:.5rem;">Mostrando los primeros ${maxMostrar} de ${lista.length.toLocaleString('es-MX')} resultados. Afina la búsqueda para ver menos.</div>` : '');
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function aplicarFiltros() {
+    const q = document.getElementById('buscador').value.trim().toLowerCase();
+    const anio = document.getElementById('filtroAnio').value;
+
+    if (q.length < 3) { mostrarInicial(); return; }
+
+    const filtrado = datos.filter(item => {
+      const coincideTexto =
+        String(item.folio_empleado || '').toLowerCase().includes(q) ||
+        String(item.nombre || '').toLowerCase().includes(q);
+      const coincideAnio = !anio || String(item.anio || '') === anio;
+      return coincideTexto && coincideAnio;
+    });
+    render(filtrado);
+  }
+
+  document.getElementById('buscador').addEventListener('input', aplicarFiltros);
+  document.getElementById('filtroAnio').addEventListener('change', aplicarFiltros);
+
+  cargarDatos();
+</script>
+</body>
+</html>
